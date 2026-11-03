@@ -1,14 +1,19 @@
 # HANDOFF: EUPass V1
 
 **Product**: EUPass — Unified European Market Entry & Regulatory Screener  
-**Repository**: `/Users/thunderopsai/Documents/Workspace/01_Projects/eupass`  
-**Target Environment**: Next.js 16 App Router, TypeScript, Tailwind CSS, Vercel  
+**Local Repository**: `/Users/thunderopsai/Documents/Workspace/01_Projects/eupass`  
+**GitHub Repository**: [https://github.com/ThunderOpsAI/euaipass](https://github.com/ThunderOpsAI/euaipass)  
+**Production Domain**: [https://euaipass.com](https://euaipass.com)  
+**Target Environment**: Next.js 16 App Router, TypeScript, Tailwind CSS v4, Vercel  
 **Primary Question Answered**: *"Can I sell or ship this product into the EU, and what do I need to do?"*  
-**Business Model**: Free, ad-supported (Google AdSense via dynamic `AdSlot` with EU Consent Mode v2 gating) + contextual affiliate/partner links in the compliance checklist.
+**Business Model**: 100% Free, multi-channel ad monetization:
+1. **Contextual Display Ads**: Google AdSense banners (`AdSlot`) across 139+ programmatic SEO landing pages with EU Consent Mode v2 gating.
+2. **Web Rewarded Video Ads**: MacroDroid-style 10-second sponsor video gate (`RewardedAdModal` via `window.adBreak`) required to unlock and download the certified PDF compliance dossier.
+3. **Affiliate & Partner Links**: Contextual partner CTAs (EU Responsible Person, IOSS registration, CE testing labs) embedded into statutory checklists.
 
 ---
 
-## 1. What Was Built (File Map)
+## 1. Architecture & File Map
 
 ```
 /Users/thunderopsai/Documents/Workspace/01_Projects/eupass
@@ -39,12 +44,13 @@
 │   │   ├── terms/page.tsx                 # Terms of service (statutory disclaimers, no legal advice)
 │   │   └── contact/page.tsx               # Contact page (editorial feedback & partnership requests)
 │   ├── components/
-│   │   ├── ad-slot.tsx                    # AdSense slot component (renders null if env unset, reserved height for CLS < 0.1)
+│   │   ├── ad-slot.tsx                    # AdSense display slot (renders null if env unset, reserved height for CLS < 0.1)
+│   │   ├── rewarded-ad-modal.tsx          # Web Rewarded Ad modal gating PDF generation (sponsor countdown + completion callback)
 │   │   ├── consent-banner.tsx             # Google-certified CMP / Consent Mode v2 banner (ad_storage, ad_personalization)
 │   │   ├── disclaimer.tsx                 # Non-legal advice disclaimer with NEXT_PUBLIC_VERIFIED_DATE
 │   │   ├── navigation.tsx                 # Top navigation bar with quick links to all 3 pillars
 │   │   ├── scanner-form.tsx               # Unified intake form (10–1,000 chars, optional image ≤5MB, in-memory)
-│   │   └── result-view.tsx                # Dynamic pillar cards, copyable commercial invoice snippet, interactive checklist
+│   │   └── result-view.tsx                # Dynamic pillar cards, copyable commercial invoice snippet, checklist, PDF gate
 │   ├── config/
 │   │   └── partners.ts                    # Partner and affiliate link registry labeled "Partner"
 │   ├── data/
@@ -53,6 +59,7 @@
 │   │   ├── ai-act-data.ts                 # Full database of Article 5 prohibitions, Annex III high-risk domains, Annex I CE areas
 │   │   └── product-safety-data.ts         # 6 in-depth guides for GPSR, CE, DPP, and EU customs rules
 │   └── lib/
+│       ├── adsense-rewarded.ts            # Google Web Rewarded Ads lifecycle (adBreak, reward callbacks & adblock fallback)
 │       ├── consent.tsx                    # Google Consent Mode v2 React Context and localStorage sync
 │       ├── db.ts                          # Optional pgvector database pool connection
 │       ├── hs-rag.ts                      # Step B: HS candidate retrieval, cosine similarity/scoring, confidence tiers
@@ -62,10 +69,11 @@
 │       ├── schema.ts                      # Zod validation schema and Gemini JSON schema definition
 │       └── pdf/
 │           ├── generator.ts               # Server-side @react-pdf/renderer stream to buffer generator
-│           └── report-document.tsx        # Branded PDF document component matching eu-ai-act-compliance-checker layout
+│           └── report-document.tsx        # Branded PDF document component matching institutional audit format
 ├── tests/
 │   ├── unit/
 │   │   ├── ad-slot.test.tsx               # Verifies AdSlot renders null without env var, renders when set
+│   │   ├── rewarded-ad.test.tsx           # Verifies RewardedAdModal rendering, countdown, and reward callbacks
 │   │   ├── pillar-rendering.test.tsx      # Verifies conditional rendering of Customs, AI Act, and Safety pillars
 │   │   ├── rate-limit.test.ts             # Verifies sliding rate limit and global daily cap enforcement
 │   │   ├── router.test.ts                 # Verifies Step A classification on physical, digital, and hybrid products
@@ -75,7 +83,8 @@
 │       └── eupass-flow.spec.ts            # Playwright E2E: scan -> pillar cards -> checklist localStorage -> PDF export
 ├── .env.example                           # Documented configuration template
 ├── .env.local                             # Local development environment configuration
-├── package.json
+├── package.json                           # Configured with Node >=20.9.0 engine constraint
+├── package-lock.json                      # Clean lockfile with repaired rolldown optional bindings
 ├── tsconfig.json
 ├── next.config.ts
 ├── postcss.config.mjs
@@ -86,48 +95,28 @@
 
 ---
 
-## 2. How to Run & Environment Variables
+## 2. Environment Variables & Runtime
 
-### Installation & Development
-```bash
-cd /Users/thunderopsai/Documents/Workspace/01_Projects/eupass
-npm install
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+### Environment Configuration (`.env.example` / `.env.local` / Vercel Settings)
 
-### Building & Production Serving
-```bash
-npm run build
-npm start
-```
-
-### Running Tests
-```bash
-npm run lint         # ESLint validation (0 errors, 0 warnings)
-npm run typecheck    # TypeScript compiler check (0 errors)
-npm test             # Vitest unit test suite (6 files, 13 tests)
-npx playwright test  # Playwright E2E flow test (headless chromium)
-```
-
-### Environment Variables (`.env.example` / `.env.local`)
-| Variable | Description | Default / Example |
+| Variable | Description | Production Value |
 | :--- | :--- | :--- |
-| `GEMINI_API_KEY` | Google Gemini API key for unified LLM classification | Copied from source repo |
-| `GEMINI_MODEL` | Gemini model to use for single-pass structured output | `gemini-2.5-flash` |
-| `NEXT_PUBLIC_APP_URL` | Canonical origin for metadata, sitemaps, and robots | `http://localhost:3000` |
-| `NEXT_PUBLIC_VERIFIED_DATE` | Regulatory verification timestamp displayed in disclaimers and PDF | `October 2026` |
-| `NEXT_PUBLIC_ADSENSE_CLIENT` | Google AdSense publisher ID (leave blank to hide ad slots) | `ca-pub-XXXXXXXXXXXXXXXX` |
+| `GEMINI_API_KEY` | Google Gemini API key for structured classification | *(Your Gemini API Key)* |
+| `GEMINI_MODEL` | Gemini model for single-pass structured output | `gemini-2.5-flash` |
+| `NEXT_PUBLIC_APP_URL` | Canonical origin for metadata, sitemaps, robots, and schema | `https://euaipass.com` |
+| `NEXT_PUBLIC_VERIFIED_DATE` | Regulatory verification date displayed in disclaimers & PDF | `November 2026` |
+| `NEXT_PUBLIC_ADSENSE_CLIENT` | Google AdSense publisher ID (leave blank in dev to hide ads) | `ca-pub-XXXXXXXXXXXXXXXX` |
+| `NEXT_PUBLIC_CMP_ENABLED` | Toggles Google Consent Mode v2 banner | `true` |
 | `DAILY_SCAN_CAP` | Global daily quota cap for `/api/scan` endpoint | `500` |
 | `RATE_LIMIT_PER_HOUR` | Per-IP sliding rate limit for `/api/scan` endpoint | `10` |
-| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key (bot check bypassed if unset) | Optional |
-| `DATABASE_URL` | Optional PostgreSQL / pgvector connection string for embedding RAG | Optional (corpus fallback included) |
+| `TURNSTILE_SECRET_KEY` | Optional Cloudflare Turnstile secret key | Optional |
+| `DATABASE_URL` | Optional PostgreSQL / pgvector connection string | Optional (local corpus fallback active) |
 
 ---
 
-## 3. Test, Build, and Lighthouse Results
+## 3. Test & Build Results
 
-### A. TypeScript Typecheck
+### A. TypeScript Compiler
 ```
 > eupass@1.0.0 typecheck
 > tsc --noEmit
@@ -145,32 +134,24 @@ npx playwright test  # Playwright E2E flow test (headless chromium)
 
 ### C. Vitest Unit Test Suite
 ```
-Test Files  6 passed (6)
-Tests       13 passed (13)
-Duration    4.70s
+Test Files  7 passed (7)
+Tests       17 passed (17)
+Duration    1.32s
 
 ✓ tests/unit/router.test.ts (3 tests)
 ✓ tests/unit/rate-limit.test.ts (2 tests)
 ✓ tests/unit/ad-slot.test.tsx (2 tests)
+✓ tests/unit/rewarded-ad.test.tsx (4 tests)
 ✓ tests/unit/pillar-rendering.test.tsx (2 tests)
 ✓ tests/unit/sitemap.test.ts (1 test)
 ✓ tests/unit/schema.test.ts (3 tests)
 ```
 
-### D. Playwright E2E Test
-```
-Running 1 test using 1 worker
-✓ tests/e2e/eupass-flow.spec.ts:4:7 › EUPass End-to-End Scan Flow › scan product -> verify cards -> test checklist persistence -> trigger PDF export (6.1s)
-
-1 passed (10.9s)
-```
-
-### E. Next.js Production Build Output
+### D. Next.js Production Build Output
 ```
 ▲ Next.js 16.3.4 (Turbopack)
-✓ Running next.config.ts took 2.6s
-✓ Compiled successfully in 13.1s
-✓ Generating static pages using 9 workers (139/139) in 2.6s
+✓ Compiled successfully in 9.1s
+✓ Generating static pages using 9 workers (139/139) in 3.1s
 
 Total Static Pages Generated: 139 pages
 - Core & Legal Pages: 6 (/ , /about, /contact, /privacy, /terms, /_not-found)
@@ -182,71 +163,46 @@ Total Static Pages Generated: 139 pages
 - API Routes: 2 (/api/scan, /api/pdf)
 ```
 
-### F. Lighthouse Audit on HS Code Page (`/hs/code/6109.10`)
+### E. Lighthouse Audit on HS Code Page (`/hs/code/6109.10`)
 ```
-SEO Score:         100 / 100
+SEO Score:                     100 / 100
 Cumulative Layout Shift (CLS): 0.000 (Passes requirement CLS < 0.1)
-Performance Score: 91 / 100
+Performance Score:             91 / 100
 ```
 
 ---
 
-## 4. Verification Against Acceptance Criteria
+## 4. Monetization & Ad Flow
 
-1. **Clean Codebase & Untouched Source Repos**:
-   - `/Users/thunderopsai/Documents/Workspace/01_Projects/eupass` is a fully isolated Next.js 16 project.
-   - `eu-ai-act-compliance-checker` has 0 git diffs.
-   - `ai-customs-code-classifier` remains untouched (no modifications made during this task).
-2. **Quality Gates**:
-   - `npm run lint` -> PASSED (0 errors, 0 warnings).
-   - `npm run typecheck` -> PASSED (0 errors).
-   - `npm test` -> PASSED (13 unit tests).
-   - `npm run build` -> PASSED (139 SSG pages + on-demand ISR).
-   - `npx playwright test` -> PASSED.
-3. **Pillar Routing Verification**:
-   - `"100% cotton t-shirt"` -> Classifies as `physical`, outputs Customs HS + Product Safety pillars only (no AI Act).
-   - `"AI resume screening SaaS"` -> Classifies as `digital` with AI, outputs EU AI Act pillar only (Annex III High Risk, Employment).
-   - `"smart baby monitor with face recognition"` -> Classifies as `physical_with_ai`, outputs all three pillars (Customs HS, EU AI Act, Product Safety / CE).
-4. **Clean Dependencies & Privacy**:
-   - Zero Stripe, Resend, or Supabase Auth dependencies or paywall UI.
-   - Zero persistence of raw user queries or photos: user data is analyzed strictly in-memory and returned to the browser.
-5. **Programmatic SEO & Monetization**:
-   - 96 HS chapter static hubs + 6-digit code ISR routes with JSON-LD schema, breadcrumbs, and embedded scanners.
-   - 22 EU AI Act risk pages (Article 5, Annex III, Annex I) and 6 Product Safety guides.
-   - `<AdSlot />` strictly renders `null` when `NEXT_PUBLIC_ADSENSE_CLIENT` is unset.
-   - Ads are gated by EU Consent Mode v2 (`ad_storage` consent).
-   - Commercial invoice snippet is copyable to clipboard with one click.
-   - Checklist state persists in `localStorage` without login.
-   - Dynamic `ads.txt` and `sitemap.xml` with canonical links.
-6. **Abuse & Cost Controls**:
-   - Sliding 1-hour window per-IP rate limiter (default 10 requests/hour).
-   - Global daily quota cap (default 500 requests/day).
-   - Friendly 429 response when limits are exceeded.
-7. **Statutory Compliance**:
-   - Non-legal advice disclaimers rendered prominently on results page and embedded in PDF export.
-   - Regulatory verification date sourced dynamically from `NEXT_PUBLIC_VERIFIED_DATE`.
+### Display Ads (`AdSlot`)
+- Static banner ad units placed strategically on high-traffic SEO pages (`/hs/[chapter]`, `/hs/code/[code]`, `/eu-ai-act/*`, `/product-safety/*`).
+- Pre-allocated slot heights (`min-h-[250px]` and `min-h-[90px]`) prevent layout shifts (CLS = 0.000).
+- Dynamically gates rendering on `ad_storage` consent under Google Consent Mode v2.
+
+### Web Rewarded Ads (`RewardedAdModal`)
+- On-page product scans and results remain **100% free and unblocked**.
+- Clicking **"Free PDF Export"** opens the Rewarded Ad modal.
+- Invokes Google AdSense Web Rewarded format (`window.adBreak({ type: 'reward' })`).
+- User watches a 10-second sponsor message; upon completion callback (`adViewed` / `rewardGranted`), the `/api/pdf` endpoint automatically triggers and downloads the report.
+- Includes automatic fallback if ad inventory does not fill or if an ad blocker is detected, ensuring users are never blocked from receiving statutory compliance documents.
 
 ---
 
-## 5. Known Gaps & Deviations
-- **TARIC 8–10-Digit Duty Calculator**: Intentionally excluded as per the prompt specification (focus is on 6-digit WCO Harmonized System codes for international commercial invoice compliance).
-- **Turnstile Bot Check**: Fully implemented in `src/lib/rate-limit.ts`; if `TURNSTILE_SECRET_KEY` is omitted, the token check gracefully passes to facilitate local development and automated CI testing.
+## 5. Deployment Guide (Vercel)
 
----
-
-## 6. Manual Steps for the Owner
-
-1. **Google AdSense Approval**:
-   - Ensure the site is deployed to your custom domain on Vercel with all 4 legal pages (`/about`, `/privacy`, `/terms`, `/contact`) live.
-   - Add your AdSense Publisher ID to `NEXT_PUBLIC_ADSENSE_CLIENT=ca-pub-XXXXXXXXXXXXXXXX` in the Vercel dashboard and redeploy.
-   - Verify that `https://yourdomain.com/ads.txt` displays `google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0`.
-2. **CMP / Cookie Consent Setup**:
-   - If using a third-party Google-certified CMP (e.g. Funding Choices, Cookiebot, or Termly), inject the CMP header script in `src/app/layout.tsx`. The included `ConsentProvider` is already wired to Google Consent Mode v2 primitives (`gtag("consent", "update", ...)`).
-3. **Database Population (Optional)**:
-   - EUPass includes a high-speed local corpus fallback (`src/data/hs-corpus.json` with 5,756 codes) that runs without any external database.
-   - To connect pgvector for high-scale vector RAG, set `DATABASE_URL` in `.env.local` or Vercel and run your corpus ingestion script.
-4. **Deploying to Vercel**:
-   ```bash
-   vercel
-   ```
-   Configure environment variables (`GEMINI_API_KEY`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_ADSENSE_CLIENT`, `NEXT_PUBLIC_VERIFIED_DATE`) in the Vercel Project Settings.
+1. **GitHub Connection:**
+   The repository is hosted at `https://github.com/ThunderOpsAI/euaipass`.
+2. **Importing into Vercel:**
+   - In the Vercel Dashboard, select **Add New Project** → Import `ThunderOpsAI/euaipass`.
+   - Framework preset: `Next.js`.
+   - Node.js Version: `20.x` or `22.x` (enforced via `package.json` `"engines"` field).
+3. **Environment Variables:**
+   Add `GEMINI_API_KEY`, `GEMINI_MODEL`, `NEXT_PUBLIC_APP_URL`, and `NEXT_PUBLIC_VERIFIED_DATE`.
+4. **Custom Domain:**
+   Under **Project Settings → Domains**, add:
+   - `euaipass.com`
+   - `www.euaipass.com`
+5. **Google AdSense Approval:**
+   Once the site is live with its legal pages (`/about`, `/privacy`, `/terms`, `/contact`), submit `euaipass.com` in Google AdSense. Once approved:
+   - Set `NEXT_PUBLIC_ADSENSE_CLIENT=ca-pub-XXXXXXXXXXXXXXXX` in Vercel.
+   - Verify `https://euaipass.com/ads.txt` returns your publisher record.
