@@ -1,0 +1,45 @@
+{
+  "name": "eupass",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000 -H 0.0.0.0",
+    "build": "next build",
+    "start": "next start -p 3000 -H 0.0.0.0",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "VITE_CONFIG_NATIVE_IGNORE_WARNING=true vitest run",
+    "test:watch": "VITE_CONFIG_NATIVE_IGNORE_WARNING=true vitest",
+    "test:e2e": "playwright test",
+    "load-corpus": "tsx scripts/load-corpus.ts",
+    "load-corpus:resume": "tsx scripts/load-corpus.ts --fast",
+    "migrate": "tsx db/migrate.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^2.21.0",
+    "@react-pdf/renderer": "^4.9.0",
+    "lucide-react": "^1.44.0",
+    "next": "16.3.4",
+    "pg": "^8.13.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.11",
+    "dotenv": "^18.0.3",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.4",
+    "happy-dom": "^20.14.5",
+    "tailwindcss": "^4",
+    "tsx": "^4.19.1",
+    "typescript": "^5",
+    "vitest": "^4.1.11"
+  }
+}
