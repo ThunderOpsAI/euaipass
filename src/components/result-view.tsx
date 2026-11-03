@@ -16,6 +16,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { Disclaimer } from "./disclaimer";
+import { RewardedAdModal } from "./rewarded-ad-modal";
 
 interface ResultViewProps {
   result: EuPassScanResult;
@@ -25,6 +26,7 @@ interface ResultViewProps {
 export function ResultView({ result, onReset }: ResultViewProps) {
   const [copiedInvoice, setCopiedInvoice] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [showRewardedModal, setShowRewardedModal] = useState(false);
   const storageKey = `eupass_checklist_${result.scan_id}`;
 
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
@@ -123,7 +125,7 @@ export function ResultView({ result, onReset }: ResultViewProps) {
               </button>
             )}
             <button
-              onClick={handleDownloadPdf}
+              onClick={() => setShowRewardedModal(true)}
               data-testid="download-pdf-btn"
               disabled={isDownloadingPdf}
               className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
@@ -404,6 +406,13 @@ export function ResultView({ result, onReset }: ResultViewProps) {
 
       {/* Mandatory Statutory Notice */}
       <Disclaimer verifiedDate={result.verified_date} />
+
+      {/* Rewarded Ad Gate for PDF Export */}
+      <RewardedAdModal
+        isOpen={showRewardedModal}
+        onClose={() => setShowRewardedModal(false)}
+        onRewardUnlocked={handleDownloadPdf}
+      />
     </div>
   );
 }
